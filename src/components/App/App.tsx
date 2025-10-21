@@ -41,11 +41,6 @@ export default function App() {
     setCurrentPage(1);
   }, [debouncedSearch]);
 
-  const handleNoteCreated = () => {
-    setSearch(""); // скидаємо рядок пошуку
-    setCurrentPage(1); // скидаємо на першу сторінку
-  };
-
   const openModal = () => setIsModalOpen(true);
   const closeModal = () => setIsModalOpen(false);
 
@@ -68,7 +63,7 @@ export default function App() {
 
         {isModalOpen && (
           <Modal onClose={closeModal}>
-            <NoteForm onClose={closeModal} onCreated={handleNoteCreated} />
+            <NoteForm onClose={closeModal} />
           </Modal>
         )}
       </header>
