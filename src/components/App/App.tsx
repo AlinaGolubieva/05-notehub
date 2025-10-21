@@ -1,13 +1,16 @@
 import { useState, useEffect } from "react";
+import { useQuery, keepPreviousData } from "@tanstack/react-query";
+import { useDebounce } from "use-debounce";
 import css from "./App.module.css";
 import NoteList from "../NoteList/NoteList";
 import { Pagination } from "../Pagination/Pagination";
 import Modal from "../Modal/Modal";
 import NoteForm from "../NoteForm/NoteForm";
 import SearchBox from "../SearchBox/SearchBox";
-import { useQueryClient } from "@tanstack/react-query";
-import { createNote } from "../../services/noteService";
-import { useDebounce } from "use-debounce";
+import type { FetchNotesResponse } from "../../services/noteService";
+import { fetchNotes } from "../../services/noteService";
+import Loader from "../Loader/Loader";
+import ErrorMessage from "../ErrorMessage/ErrorMessage";
 
 export default function App() {
   const [search, setSearch] = useState("");
@@ -16,15 +19,35 @@ export default function App() {
   const perPage = 12;
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  const openModal = () => setIsModalOpen(true);
-  const closeModal = () => setIsModalOpen(false);
-
-  const queryClient = useQueryClient();
-
   const [debouncedSearch] = useDebounce(search, 700);
+
+  const { data, isLoading, isError } = useQuery<FetchNotesResponse>({
+    queryKey: [
+      "notes",
+      { search: debouncedSearch, page: currentPage, perPage },
+    ],
+    queryFn: () =>
+      fetchNotes({ search: debouncedSearch, page: currentPage, perPage }),
+    placeholderData: keepPreviousData,
+  });
+
+  useEffect(() => {
+    if (data?.totalPages) {
+      setTotalPages(data.totalPages);
+    }
+  }, [data?.totalPages]);
+
   useEffect(() => {
     setCurrentPage(1);
   }, [debouncedSearch]);
+
+  const handleNoteCreated = () => {
+    setSearch(""); // скидаємо рядок пошуку
+    setCurrentPage(1); // скидаємо на першу сторінку
+  };
+
+  const openModal = () => setIsModalOpen(true);
+  const closeModal = () => setIsModalOpen(false);
 
   return (
     <div className={css.app}>
@@ -45,26 +68,15 @@ export default function App() {
 
         {isModalOpen && (
           <Modal onClose={closeModal}>
-            <NoteForm
-              onSubmit={async (values) => {
-                await createNote(values);
-                closeModal();
-                queryClient.invalidateQueries({
-                  queryKey: ["notes", { search, page: currentPage, perPage }],
-                });
-              }}
-            />
+            <NoteForm onClose={closeModal} onCreated={handleNoteCreated} />
           </Modal>
         )}
       </header>
-      <NoteList
-        noteQueryParams={{
-          search: debouncedSearch,
-          page: currentPage,
-          perPage,
-        }}
-        onTotalPagesChange={setTotalPages}
-      />
+      {isLoading && <Loader />}
+      {isError && <ErrorMessage />}
+      {data?.notes && data.notes.length > 0 && (
+        <NoteList notes={data.notes} onTotalPagesChange={setTotalPages} />
+      )}
     </div>
   );
 }

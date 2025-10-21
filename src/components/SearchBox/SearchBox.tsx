@@ -2,11 +2,11 @@ import { useState, useEffect } from "react";
 import { useDebounce } from "use-debounce";
 import css from "./SearchBox.module.css";
 
-type Props = {
+type SearchBoxProps = {
   onSearch: (value: string) => void;
 };
 
-export default function SearchBox({ onSearch }: Props) {
+export default function SearchBox({ onSearch }: SearchBoxProps) {
   const [value, setValue] = useState("");
   const [debouncedValue] = useDebounce(value, 700);
 

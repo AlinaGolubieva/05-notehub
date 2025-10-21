@@ -3,6 +3,8 @@ import type { FormikHelpers } from "formik";
 import * as Yup from "yup";
 import css from "./NoteForm.module.css";
 import type { NoteTag } from "../../types/note";
+import { createNote } from "../../services/noteService";
+import { useQueryClient, useMutation } from "@tanstack/react-query";
 
 interface NoteFormValues {
   title: string;
@@ -11,8 +13,8 @@ interface NoteFormValues {
 }
 
 interface NoteFormProps {
-  onSubmit: (values: NoteFormValues) => void;
-  onCancel?: () => void;
+  onClose: () => void;
+  onCreated?: () => void;
 }
 
 const initialValues: NoteFormValues = {
@@ -29,18 +31,29 @@ const NoteFormSchema = Yup.object().shape({
     .required("Title is required"),
   content: Yup.string()
     .max(500, "Content must be at most 500 characters")
-    .nullable(),
+    .required("Content is required"),
   tag: Yup.mixed<NoteFormValues["tag"]>()
     .oneOf(["Todo", "Work", "Personal", "Meeting", "Shopping"])
     .required("Tag is required"),
 });
 
-export default function NoteForm({ onSubmit, onCancel }: NoteFormProps) {
+export default function NoteForm({ onClose, onCreated }: NoteFormProps) {
+  const queryClient = useQueryClient();
+
+  const createNoteMutation = useMutation({
+    mutationFn: createNote,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["notes"] });
+      onClose();
+      onCreated?.();
+    },
+  });
+
   const handleSubmit = async (
     values: NoteFormValues,
     actions: FormikHelpers<NoteFormValues>
   ) => {
-    await onSubmit(values);
+    await createNoteMutation.mutateAsync(values);
     actions.resetForm();
   };
 
@@ -86,12 +99,15 @@ export default function NoteForm({ onSubmit, onCancel }: NoteFormProps) {
 
         {/* Дії */}
         <div className={css.actions}>
-          <button type="button" className={css.cancelButton} onClick={onCancel}>
+          <button type="button" className={css.cancelButton} onClick={onClose}>
             Cancel
           </button>
           <button type="submit" className={css.submitButton}>
             Create note
           </button>
+          {createNoteMutation.isPending && <div>Creating...</div>}
+          {createNoteMutation.isError && <div>An error occurred</div>}
+          {createNoteMutation.isSuccess && <div>Todo added!</div>}
         </div>
       </Form>
     </Formik>
